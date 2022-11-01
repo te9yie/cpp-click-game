@@ -24,17 +24,19 @@ file(GLOB imgui_backends
     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl*.h
     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl*.cpp)
 file(GLOB_RECURSE sources
-	${PROJECT_SOURCE_DIR}/src/*.h
-	${PROJECT_SOURCE_DIR}/src/*.cpp)
+    ${PROJECT_SOURCE_DIR}/src/*.h
+    ${PROJECT_SOURCE_DIR}/src/*.cpp)
 
 source_group(imgui FILES ${imgui_sources} ${imgui_backends})
 
 file(GLOB graphics_sources ${PROJECT_SOURCE_DIR}/src/graphics/*)
 file(GLOB gui_sources ${PROJECT_SOURCE_DIR}/src/gui/*)
 file(GLOB t9_sources ${PROJECT_SOURCE_DIR}/src/t9/*)
+file(GLOB task_sources ${PROJECT_SOURCE_DIR}/src/task/*)
 source_group(graphics FILES ${graphics_sources})
 source_group(gui FILES ${gui_sources})
 source_group(t9 FILES ${t9_sources})
+source_group(task FILES ${task_sources})
 
 add_executable(${PROJECT_NAME} WIN32
     ${imgui_sources} ${imgui_backends}
@@ -50,7 +52,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE ${imgui_SOURCE_DIR})
 target_include_directories(${PROJECT_NAME} PRIVATE ${imgui_SOURCE_DIR}/backends)
 target_link_libraries(${PROJECT_NAME} PRIVATE SDL2::SDL2 SDL2::SDL2main)
 
-if (MSVC)
+if(MSVC)
     add_custom_command(
         TARGET ${PROJECT_NAME}
         POST_BUILD

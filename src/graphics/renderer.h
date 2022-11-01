@@ -3,6 +3,7 @@
 
 #include "config.h"
 #include "t9/defer.h"
+#include "task/event.h"
 
 namespace graphics {
 

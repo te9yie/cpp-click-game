@@ -42,6 +42,7 @@ void begin_render(Renderer* r) {
   SDL_SetRenderDrawColor(r->renderer.get(), 0x12, 0x34, 0x56, 0xff);
   SDL_RenderClear(r->renderer.get());
 }
+
 // end_render.
 void end_render(Renderer* r) { SDL_RenderPresent(r->renderer.get()); }
 

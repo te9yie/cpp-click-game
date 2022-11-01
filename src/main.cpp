@@ -6,22 +6,18 @@
 
 #include <cstdlib>
 
+#include "core/core.h"
 #include "graphics/renderer.h"
 #include "graphics/sprite.h"
 #include "gui/gui.h"
-#include "imgui.h"
-#include "imgui_impl_sdl.h"
 
 int main(int /*argc*/, char* /*argv*/[]) {
 #if defined(_MSC_VER)
   _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
 
-  if (SDL_Init(SDL_INIT_TIMER) < 0) {
-    SDL_LogCritical(SDL_LOG_CATEGORY_SYSTEM, "error: %s", SDL_GetError());
-    return EXIT_FAILURE;
-  }
-  atexit(SDL_Quit);
+  core::Core core;
+  init_core(&core);
 
   graphics::RendererConfig config;
   config.window_title = "Click Game";
@@ -40,22 +36,15 @@ int main(int /*argc*/, char* /*argv*/[]) {
   sprite.rect = SDL_Rect{100, 100, 200, 50};
   sprite.material.color = graphics::Rgba{0xff, 0x00, 0x00};
 
+  task::Event<core::AppEvent> events;
+  std::size_t recv_index = 0;
+  task::EventReceiver<core::AppEvent> receiver{&events, &recv_index};
+
   bool loop = true;
   while (loop) {
-    {
-      SDL_Event e;
-      while (SDL_PollEvent(&e)) {
-        ImGui_ImplSDL2_ProcessEvent(&e);
-        if (e.type == SDL_QUIT) {
-          loop = false;
-        }
-        if (e.type == SDL_WINDOWEVENT &&
-            e.window.event == SDL_WINDOWEVENT_CLOSE &&
-            e.window.windowID == SDL_GetWindowID(renderer.window.get())) {
-          loop = false;
-        }
-      }
-    }
+    update_events(&events);
+
+    handle_events(task::EventSender<core::AppEvent>{&events});
 
     pre_update_gui(&gui);
     post_update_gui(&gui);
@@ -66,6 +55,12 @@ int main(int /*argc*/, char* /*argv*/[]) {
 
     render_gui(&gui, &renderer);
     end_render(&renderer);
+
+    receiver.each([&](core::AppEvent e) {
+      if (e == core::AppEvent::Quit) {
+        loop = false;
+      }
+    });
   }
 
   return EXIT_SUCCESS;
