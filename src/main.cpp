@@ -16,11 +16,13 @@ int main(int /*argc*/, char* /*argv*/[]) {
   _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
 
-  core::Core core;
-  init_core(&core);
-
   graphics::RendererConfig config;
   config.window_title = "Click Game";
+
+  core::Core core;
+  if (!init_core(&core)) {
+    return EXIT_FAILURE;
+  }
 
   graphics::Renderer renderer;
   if (!init_renderer(&renderer, &config)) {
@@ -47,6 +49,7 @@ int main(int /*argc*/, char* /*argv*/[]) {
     handle_events(task::EventSender<core::AppEvent>{&events});
 
     pre_update_gui(&gui);
+
     post_update_gui(&gui);
 
     begin_render(&renderer);
