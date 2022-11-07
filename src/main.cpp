@@ -1,3 +1,7 @@
+#if defined(_MSC_VER)
+#include <crtdbg.h>
+#endif
+
 #include <GL/glew.h>
 #include <SDL.h>
 #include <SDL_opengl.h>
@@ -22,12 +26,172 @@ struct DeleteContext {
 using ContextPtr =
     std::unique_ptr<std::remove_pointer_t<SDL_GLContext>, DeleteContext>;
 
+// GLHandle.
+template <class Deleter>
+class GLHandle {
+ private:
+  GLHandle(const GLHandle&) = delete;
+  GLHandle& operator=(const GLHandle&) = delete;
+
+ private:
+  GLuint id_ = 0;
+
+ public:
+  GLHandle() = default;
+  GLHandle(GLuint id) : id_(id) {}
+  GLHandle(GLHandle&& handle) : id_(handle.id_) { handle.id_ = 0; }
+  virtual ~GLHandle() { Deleter()(id_); }
+
+  GLuint get() const { return id_; }
+  explicit operator bool() const { return id_ != 0; }
+
+  GLHandle& operator=(GLHandle&& handle) {
+    GLHandle(std::move(handle)).swap(*this);
+    return *this;
+  }
+
+  void swap(GLHandle& handle) {
+    using std::swap;
+    swap(id_, handle.id_);
+  }
+};
+
+template <class Deleter>
+inline void swap(GLHandle<Deleter>& lhs, GLHandle<Deleter>& rhs) {
+  lhs.swap(rhs);
+}
+
+struct ShaderDelete {
+  void operator()(GLuint id) const { glDeleteShader(id); }
+};
+using ShaderHandle = GLHandle<ShaderDelete>;
+
+struct ProgramDelete {
+  void operator()(GLuint id) const { glDeleteProgram(id); }
+};
+using ProgramHandle = GLHandle<ProgramDelete>;
+
+struct BufferDelete {
+  void operator()(GLuint id) const { glDeleteBuffers(1, &id); }
+};
+using BufferHandle = GLHandle<BufferDelete>;
+
+struct VertexArrayDelete {
+  void operator()(GLuint id) const { glDeleteVertexArrays(1, &id); }
+};
+using VertexArrayHandle = GLHandle<VertexArrayDelete>;
+
+ShaderHandle compile_source(GLenum type, const char* version, const char* src) {
+  auto id = glCreateShader(type);
+  if (id == 0) {
+    SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "compile_source: %s",
+                 gluErrorString(glGetError()));
+    return 0;
+  }
+
+  const GLchar* srcs[] = {version, src};
+  glShaderSource(id, 2, srcs, nullptr);
+  glCompileShader(id);
+
+  GLint status;
+  glGetShaderiv(id, GL_COMPILE_STATUS, &status);
+  if (status == GL_FALSE) {
+    GLint len;
+    glGetShaderiv(id, GL_INFO_LOG_LENGTH, &len);
+    if (len > 0) {
+      const GLsizei BUF_SIZE = 1024;
+      char buf[BUF_SIZE];
+      GLsizei size;
+      glGetShaderInfoLog(id, BUF_SIZE, &size, buf);
+      SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "compile_source: %s", buf);
+    }
+    return 0;
+  }
+  return id;
+}
+
+ProgramHandle create_program(const char* version, const char* vert_src,
+                             const char* frag_src) {
+  auto id = glCreateProgram();
+  if (id == 0) {
+    SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "create_program: %s",
+                 gluErrorString(glGetError()));
+    return 0;
+  }
+  auto vert_shader = compile_source(GL_VERTEX_SHADER, version, vert_src);
+  if (!vert_shader) {
+    return 0;
+  }
+  auto frag_shader = compile_source(GL_FRAGMENT_SHADER, version, frag_src);
+  if (!frag_shader) {
+    return 0;
+  }
+  glAttachShader(id, vert_shader.get());
+  glAttachShader(id, frag_shader.get());
+  glLinkProgram(id);
+
+  GLint status;
+  glGetProgramiv(id, GL_LINK_STATUS, &status);
+  if (status == GL_FALSE) {
+    GLint len;
+    glGetProgramiv(id, GL_INFO_LOG_LENGTH, &len);
+    if (len > 0) {
+      const GLsizei BUF_SIZE = 1024;
+      char buf[BUF_SIZE];
+      GLsizei size;
+      glGetProgramInfoLog(id, BUF_SIZE, &size, buf);
+      SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "create_program: %s", buf);
+    }
+    return 0;
+  }
+  return id;
+}
+
+BufferHandle create_buffer() {
+  GLuint id;
+  glGenBuffers(1, &id);
+  return id;
+}
+
+VertexArrayHandle create_vertex_array() {
+  GLuint id;
+  glGenVertexArrays(1, &id);
+  return id;
+}
+
+const char* SHADER_VERSION = "#version 400\n";
+const char* VERT_SRC =
+    "in vec3 inPosition;"
+    "in vec4 inColor;"
+    "out vec4 Color;"
+    "void main() {"
+    "  Color = inColor;"
+    "  gl_Position = vec4(inPosition, 1.0);"
+    "}";
+const char* FRAG_SRC =
+    "in vec4 Color;"
+    "out vec4 FragColor;"
+    "void main() {"
+    "  FragColor = Color;"
+    "}";
+
+struct VertexFormat {
+  float pos[3];
+  float color[3];
+};
+
 }  // namespace
 
 int main(int /*argc*/, char* /*argv*/[]) {
+#if defined(_MSC_VER)
+  _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+#endif
+
   const char* TITLE = "Click Game";
   const int SCREEN_WIDTH = 4 * 200;
   const int SCREEN_HEIGHT = 3 * 200;
+
+  SDL_LogSetAllPriority(SDL_LOG_PRIORITY_VERBOSE);
 
   if (SDL_Init(SDL_INIT_TIMER | SDL_INIT_VIDEO) < 0) {
     SDL_LogCritical(SDL_LOG_CATEGORY_SYSTEM, "%s", SDL_GetError());
@@ -62,6 +226,49 @@ int main(int /*argc*/, char* /*argv*/[]) {
   ImGui_ImplSDL2_InitForOpenGL(window.get(), context.get());
   ImGui_ImplOpenGL3_Init("#version 130");
 
+  {
+    int major;
+    int minor;
+    glGetIntegerv(GL_MAJOR_VERSION, &major);
+    glGetIntegerv(GL_MINOR_VERSION, &minor);
+    SDL_Log("GL Vendor: %s", glGetString(GL_VENDOR));
+    SDL_Log("GL Renderer: %s", glGetString(GL_RENDERER));
+    SDL_Log("GL Version: %s (%d.%d)", glGetString(GL_VERSION), major, minor);
+    SDL_Log("GLSL Version: %s", glGetString(GL_SHADING_LANGUAGE_VERSION));
+  }
+
+  const VertexFormat vertices[] = {
+      // clang-format off
+      { { 0, 0.5f, 0 }, { 1, 0, 0 } },
+      { { 0.5f, -0.5f, 0 }, { 0, 1, 0 } },
+      { { -0.5f, -0.5f, 0 }, { 0, 0, 1 } },
+      // clang-format on
+  };
+
+  auto shader = create_program(SHADER_VERSION, VERT_SRC, FRAG_SRC);
+  if (!shader) return EXIT_FAILURE;
+
+  auto vertex_buffer = create_buffer();
+  glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer.get());
+  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+  auto vertex_array = create_vertex_array();
+  glBindVertexArray(vertex_array.get());
+
+  auto pos_loc = glGetAttribLocation(shader.get(), "inPosition");
+  auto col_loc = glGetAttribLocation(shader.get(), "inColor");
+
+  glEnableVertexAttribArray(pos_loc);
+  glEnableVertexAttribArray(col_loc);
+
+  glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer.get());
+  glVertexAttribPointer(
+      pos_loc, 3, GL_FLOAT, GL_FALSE, sizeof(VertexFormat),
+      reinterpret_cast<const void*>(offsetof(VertexFormat, pos)));
+  glVertexAttribPointer(
+      col_loc, 3, GL_FLOAT, GL_FALSE, sizeof(VertexFormat),
+      reinterpret_cast<const void*>(offsetof(VertexFormat, color)));
+
   bool loop = true;
   while (loop) {
     {
@@ -78,6 +285,7 @@ int main(int /*argc*/, char* /*argv*/[]) {
         }
       }
     }
+
     int w, h;
     SDL_GL_GetDrawableSize(window.get(), &w, &h);
 
@@ -90,9 +298,16 @@ int main(int /*argc*/, char* /*argv*/[]) {
     ImGui::Render();
 
     glViewport(0, 0, w, h);
-    glClearColor(0.12f, 0.34f, 0.56f, 1.0f);
+    glClearColor(0.1f, 0.2f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
+
+    glUseProgram(shader.get());
+    glBindVertexArray(vertex_array.get());
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+    glFinish();
     SDL_GL_SwapWindow(window.get());
   }
 
