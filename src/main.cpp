@@ -1,6 +1,4 @@
-#include "imgui.h"
-#include "imgui_impl_opengl3.h"
-#include "imgui_impl_sdl.h"
+#include "asset/loader.h"
 
 namespace {
 
@@ -215,6 +213,15 @@ int main(int /*argc*/, char* /*argv*/[]) {
   ImGui_ImplSDL2_InitForOpenGL(window.get(), context.get());
   ImGui_ImplOpenGL3_Init("#version 130");
 
+  asset::AssetStorage assets;
+  asset::Loader loader(&assets);
+
+  {
+    auto handle = loader.load("assets/mplus_f12r.bmp");
+    auto a = assets.get(handle.id());
+    SDL_Log("size: %u", a->data().size());
+  }
+
   {
     int major;
     int minor;
@@ -274,6 +281,8 @@ int main(int /*argc*/, char* /*argv*/[]) {
         }
       }
     }
+
+    loader.update();
 
     int w, h;
     SDL_GL_GetDrawableSize(window.get(), &w, &h);

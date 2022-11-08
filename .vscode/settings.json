@@ -1,0 +1,16 @@
+{
+    "files.associations": {
+        "charconv": "cpp",
+        "chrono": "cpp",
+        "format": "cpp",
+        "locale": "cpp",
+        "memory": "cpp",
+        "mutex": "cpp",
+        "thread": "cpp",
+        "xlocale": "cpp",
+        "xlocmes": "cpp",
+        "xlocmon": "cpp",
+        "xlocnum": "cpp",
+        "xloctime": "cpp"
+    }
+}
