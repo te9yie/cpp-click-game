@@ -1,14 +1,3 @@
-#if defined(_MSC_VER)
-#include <crtdbg.h>
-#endif
-
-#include <GL/glew.h>
-#include <SDL.h>
-#include <SDL_opengl.h>
-
-#include <cstdlib>
-#include <memory>
-
 #include "imgui.h"
 #include "imgui_impl_opengl3.h"
 #include "imgui_impl_sdl.h"

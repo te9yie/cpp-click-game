@@ -36,17 +36,18 @@ file(GLOB imgui_sources
 file(GLOB imgui_backends
     ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3*
     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl.*)
-source_group(imgui FILES ${imgui_sources} ${imgui_backends})
+
+add_library(imgui STATIC ${imgui_sources} ${imgui_backends})
+target_include_directories(imgui PRIVATE ${imgui_SOURCE_DIR})
+target_include_directories(imgui PRIVATE ${imgui_SOURCE_DIR}/backends)
+target_link_libraries(imgui PRIVATE SDL2::SDL2-static)
 
 file(GLOB_RECURSE sources
-	${PROJECT_SOURCE_DIR}/src/*.h
-	${PROJECT_SOURCE_DIR}/src/*.cpp)
+    ${PROJECT_SOURCE_DIR}/src/*.h
+    ${PROJECT_SOURCE_DIR}/src/*.cpp)
 
-source_group(imgui FILES ${imgui_sources} ${imgui_backends})
-
-add_executable(${PROJECT_NAME} WIN32
-    ${imgui_sources} ${imgui_backends}
-    ${sources})
+add_executable(${PROJECT_NAME} WIN32 ${sources})
+target_precompile_headers(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/src/pch.h)
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
 target_compile_options(${PROJECT_NAME} PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/W4 /utf-8>
@@ -58,5 +59,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE ${imgui_SOURCE_DIR})
 target_include_directories(${PROJECT_NAME} PRIVATE ${imgui_SOURCE_DIR}/backends)
 target_include_directories(${PROJECT_NAME} PRIVATE ${glew_SOURCE_DIR}/include)
 target_link_libraries(${PROJECT_NAME} PRIVATE
+    imgui
     SDL2::SDL2-static SDL2::SDL2main
     glew_s OpenGL::GL OpenGL::GLU)
