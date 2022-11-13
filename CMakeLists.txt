@@ -32,8 +32,12 @@ file(GLOB_RECURSE SOURCES
 	${PROJECT_SOURCE_DIR}/src/*.h
 	${PROJECT_SOURCE_DIR}/src/*.cpp)
 
+file(GLOB si_asset_sources ${PROJECT_SOURCE_DIR}/src/si/asset/*)
+source_group(si/asset FILES ${si_asset_sources})
+
 add_executable(${PROJECT_NAME} WIN32 ${SOURCES})
 target_precompile_headers(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/src/pch.h)
+target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
 target_compile_options(${PROJECT_NAME} PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/W4 /utf-8>
     $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-W -Wall>)

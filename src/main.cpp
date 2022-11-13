@@ -1,3 +1,5 @@
+#include "si/asset/loader.h"
+
 namespace {
 
 struct DestroyWindow {
@@ -16,6 +18,11 @@ int main(int /*argc*/, char* /*argv*/[]) {
 #if defined(_MSC_VER)
   _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
+
+  si::asset::AssetStorage assets;
+  si::asset::Loader loader(&assets);
+  { auto f = loader.load("test.cpp"); }
+  loader.apply_remove();
 
   const char* TITLE = "Click Game";
   const int SCREEN_WIDTH = 16 * 60;
